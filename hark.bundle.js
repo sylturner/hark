@@ -52,13 +52,14 @@ module.exports = function(stream, options) {
     sourceNode = audioContext.createMediaElementSource(stream);
     if (typeof play === 'undefined') play = true;
     threshold = threshold || -50;
-  } else {
+  } else if(audioContext.createMediaStreamSource) {
     //WebRTC Stream
     sourceNode = audioContext.createMediaStreamSource(stream);
     threshold = threshold || -50;
   }
-
-  sourceNode.connect(analyser);
+  if(sourceNode) {
+    sourceNode.connect(analyser);
+  }
   if (play) analyser.connect(audioContext.destination);
 
   harker.speaking = false;

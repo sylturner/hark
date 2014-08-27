@@ -163,43 +163,70 @@ module.exports = function (constraints, cb) {
 
 },{}],5:[function(require,module,exports){
 module.exports = function (stream, el, options) {
-    var URL = window.URL;
-    var opts = {
-        autoplay: true,
-        mirror: false,
-        muted: false
-    };
-    var element = el || document.createElement('video');
-    var item;
+  var URL = window.URL;
+  var opts = {
+    autoplay: true,
+    mirror: false,
+    muted: false
+  };
+  var element = el || document.createElement('video');
+  var item;
 
-    if (options) {
-        for (item in options) {
-            opts[item] = options[item];
+  if (options) {
+    for (item in options) {
+      opts[item] = options[item];
+    }
+  }
+
+  if (opts.autoplay) element.autoplay = 'autoplay';
+  if (opts.muted) element.muted = true;
+  if (opts.mirror) {
+    ['', 'moz', 'webkit', 'o', 'ms'].forEach(function (prefix) {
+      var styleName = prefix ? prefix + 'Transform' : 'transform';
+      element.style[styleName] = 'scaleX(-1)';
+    });
+  }
+
+  var ua = window.navigator.userAgent.toLowerCase();
+  if(ua.indexOf('firefox') == -1 && ua.indexOf('chrome') == -1){
+    var elementId = element.id.length === 0 ? Math.random().toString(36).slice(2) : element.id;
+    if (!element.isTemWebRTCPlugin || !element.isTemWebRTCPlugin()) {
+      var obj = document.createElement('object');
+      obj.id = elementId;
+      obj.type = "application/x-temwebrtcplugin"
+      obj.innerHTML =
+        '<param name="pluginId" value="' + elementId + '" /> ' +
+        '<param name="pageId" value="' + window.TemPageId + '" /> ' +
+        '<param name="windowless" value="true" /> ' +
+        '<param name="streamId" value="' + stream.id + '" /> ';
+      return obj;
+    } else {
+      var children = element.children;
+      for (var i = 0; i !== children.length; ++i) {
+        if (children[i].name === 'streamId') {
+          children[i].value = stream.id;
+          break;
         }
+      }
+      element.setStreamId(stream.id);
+      return element;
     }
-
-    if (opts.autoplay) element.autoplay = 'autoplay';
-    if (opts.muted) element.muted = true;
-    if (opts.mirror) {
-        ['', 'moz', 'webkit', 'o', 'ms'].forEach(function (prefix) {
-            var styleName = prefix ? prefix + 'Transform' : 'transform';
-            element.style[styleName] = 'scaleX(-1)';
-        });
-    }
-
+  }
+  else {
     // this first one should work most everywhere now
     // but we have a few fallbacks just in case.
     if (URL && URL.createObjectURL) {
-        element.src = URL.createObjectURL(stream);
+      element.src = URL.createObjectURL(stream);
     } else if (element.srcObject) {
-        element.srcObject = stream;
+      element.srcObject = stream;
     } else if (element.mozSrcObject) {
-        element.mozSrcObject = stream;
+      element.mozSrcObject = stream;
     } else {
-        return false;
+      return false;
     }
+  }
 
-    return element;
+  return element;
 };
 
 },{}],2:[function(require,module,exports){
@@ -255,13 +282,14 @@ module.exports = function(stream, options) {
     sourceNode = audioContext.createMediaElementSource(stream);
     if (typeof play === 'undefined') play = true;
     threshold = threshold || -50;
-  } else {
+  } else if(audioContext.createMediaStreamSource) {
     //WebRTC Stream
     sourceNode = audioContext.createMediaStreamSource(stream);
     threshold = threshold || -50;
   }
-
-  sourceNode.connect(analyser);
+  if(sourceNode) {
+    sourceNode.connect(analyser);
+  }
   if (play) analyser.connect(audioContext.destination);
 
   harker.speaking = false;
@@ -521,7 +549,8 @@ WildEmitter.prototype.getWildcardCallbacks = function (eventName) {
         return;
     }
 
-    if (ls && ls.debug && window.console) {
+    var andlogKey = ls.andlogKey || 'debug'
+    if (ls && ls[andlogKey] && window.console) {
         out = window.console;
     } else {
         var methods = "assert,count,debug,dir,dirxml,error,exception,group,groupCollapsed,groupEnd,info,log,markTimeline,profile,profileEnd,time,timeEnd,trace,warn".split(","),
